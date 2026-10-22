@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="YardDesk demo for Strong Wall: fuel, repairs, scheduling, concrete tracking and daily logs in one app.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>YardDesk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: yard-office console. Left rail of departments on desktop, scrolling tab strip on phones (drivers use phones). Hi-vis amber marks what needs action. */
+:root{
+  --bg:#EFEFEB; --surface:#FFFFFF; --sunk:#F6F6F3; --ink:#1D2125; --muted:#5B636A; --line:#D9DBD6;
+  --accent:#F2A900; --accent-ink:#1D2125; --accent-soft:#FDF1CF;
+  --ok:#2D7A4E; --ok-soft:#E3F1E8; --warn:#A86200; --warn-soft:#FBEBD2; --bad:#B8322A; --bad-soft:#F8E1DF;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14171A; --surface:#1C2024; --sunk:#181B1F; --ink:#ECEDEA; --muted:#9BA2A8; --line:#2C3237;
+  --accent:#FFB81C; --accent-ink:#14171A; --accent-soft:#3A2F12;
+  --ok:#5DBB85; --ok-soft:#1C3326; --warn:#F0A43A; --warn-soft:#3A2A12; --bad:#F07068; --bad-soft:#3D1F1D; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14171A; --surface:#1C2024; --sunk:#181B1F; --ink:#ECEDEA; --muted:#9BA2A8; --line:#2C3237;
+  --accent:#FFB81C; --accent-ink:#14171A; --accent-soft:#3A2F12;
+  --ok:#5DBB85; --ok-soft:#1C3326; --warn:#F0A43A; --warn-soft:#3A2A12; --bad:#F07068; --bad-soft:#3D1F1D; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{width:30px;height:30px;border-radius:4px;background:repeating-linear-gradient(-45deg,var(--accent) 0 6px,var(--ink) 6px 12px);flex:none}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.02em;margin:0;line-height:1}.brand h1 span{color:var(--accent)}
+.brand small{display:block;color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spacer{flex:1}
+.role{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:6px 12px;cursor:pointer;font-weight:600;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+
+.app{display:grid;grid-template-columns:200px 1fr;min-height:calc(100% - 60px)}
+nav.rail{border-right:1px solid var(--line);padding:16px 10px;display:flex;flex-direction:column;gap:2px;background:var(--surface)}
+nav.rail button{display:flex;align-items:center;gap:10px;border:0;background:transparent;text-align:left;padding:9px 12px;border-radius:var(--r);cursor:pointer;font-weight:500;color:var(--muted)}
+nav.rail button:hover{background:var(--sunk);color:var(--ink)}
+nav.rail button[aria-current="page"]{background:var(--accent-soft);color:var(--ink);font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
+nav.rail .badge{margin-left:auto}
+main{min-width:0;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1180px;width:100%}
+@media (min-width:861px){main{padding-left:28px;padding-right:max(28px,env(safe-area-inset-right,0px))}}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  nav.rail{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));gap:4px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+  nav.rail button{white-space:nowrap;padding:8px 12px}
+  nav.rail button[aria-current="page"]{box-shadow:inset 0 -3px 0 var(--accent)}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+}
+
+h2.view{font-family:var(--f-display);font-weight:700;font-size:30px;letter-spacing:.01em;margin:0 0 2px;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 20px}
+h3{font-family:var(--f-display);font-weight:600;font-size:19px;letter-spacing:.02em;margin:0 0 10px}
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+.grid{display:grid;gap:16px}
+.cols-2{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
+@media (max-width:980px){.cols-2{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;min-width:0}
+.kpi .val{font-family:var(--f-display);font-weight:700;font-size:34px;line-height:1.05;margin-top:4px}
+.kpi .val .u{font-family:var(--f-body);font-weight:500;font-size:14px;color:var(--muted);margin-left:4px}
+.kpi .eyebrow{text-transform:none;letter-spacing:0;font-size:13px;font-weight:500}
+.kpi .foot{color:var(--muted);font-size:13px;margin-top:2px}
+
+.alerts{display:flex;flex-direction:column;gap:8px}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:var(--r);background:var(--sunk);border-left:4px solid var(--muted)}
+.alert.bad{border-left-color:var(--bad);background:var(--bad-soft)}
+.alert.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+.alert.ok{border-left-color:var(--ok);background:var(--ok-soft)}
+.alert b{font-weight:600}
+.alert .go{margin-left:auto;white-space:nowrap}
+
+.tablewrap{overflow-x:auto;margin:0 -4px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+td.r,th.r{text-align:right}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;background:var(--sunk);color:var(--muted);border:1px solid var(--line)}
+.pill.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.pill.acc{background:var(--accent-soft);color:var(--ink);border-color:transparent}
+.badge{font-family:var(--f-mono);font-size:11px;background:var(--bad);color:#fff;border-radius:999px;padding:1px 7px}
+
+.bars{display:flex;flex-direction:column;gap:7px}
+.bar{display:grid;grid-template-columns:64px 1fr 74px;gap:10px;align-items:center;font-size:13px}
+.bar .track{height:14px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.bar .fill{height:100%;background:var(--ink);opacity:.82}
+.bar .fill.hot{background:var(--accent);opacity:1}
+
+form.card{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 12px;align-items:end}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;min-width:0}
+input,select,textarea{background:var(--sunk);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:80px;line-height:1.45}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:8px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(.96)}
+.btn.small{padding:4px 10px;font-size:13px}
+.btn.link{border:0;background:none;padding:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted)}
+.note{font-size:13px;color:var(--muted)}
+
+.tickets{display:flex;flex-direction:column;gap:10px}
+.ticket{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:var(--r);padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:6px 14px;min-width:0}
+.ticket.p-critical{border-left-color:var(--bad)} .ticket.p-high{border-left-color:var(--warn)} .ticket.p-medium{border-left-color:var(--accent)} .ticket.p-low{border-left-color:var(--muted)}
+.ticket .t{font-weight:600}
+.ticket .meta{font-size:13px;color:var(--muted)}
+.ticket .ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;grid-column:1/-1}
+.ticket .ctl select,.ticket .ctl input{width:auto}
+
+.days{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px}
+.day{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:6px 12px;cursor:pointer;text-align:center;min-width:64px}
+.day b{display:block;font-family:var(--f-display);font-size:20px;line-height:1.1}
+.day span{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.day[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.day[aria-pressed="true"] span{color:var(--bg);opacity:.75}
+.mine{box-shadow:inset 3px 0 0 var(--accent)}
+
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;grid-column:1/-1}
+.check{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunk);font-size:14px}
+.check .seg{flex:none}
+.check>span{min-width:0}
+.check .seg button{padding:4px 10px;font-size:12px}
+.check .seg button.def[aria-pressed="true"]{background:var(--bad);color:#fff}
+
+.chat{display:flex;flex-direction:column;gap:12px;min-height:320px;max-height:60vh;overflow-y:auto;padding:4px 2px 8px}
+.msg{max-width:min(680px,92%);padding:10px 14px;border-radius:12px;white-space:pre-wrap;line-height:1.5}
+.msg.me{align-self:flex-end;background:var(--ink);color:var(--bg);border-bottom-right-radius:4px}
+.msg.bot{align-self:flex-start;background:var(--sunk);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.bot .who{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:4px;display:block}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer}
+.chip:hover{border-color:var(--accent);background:var(--accent-soft)}
+.askbar{display:flex;gap:8px;margin-top:8px}
+.askbar input{flex:1}
+
+.kb{display:flex;flex-direction:column;gap:12px}
+.kbitem{border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--sunk);display:flex;flex-direction:column;gap:8px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+nav.rail .lbl{display:flex;flex-direction:column;line-height:1.25}
+nav.rail .lbl small{font-size:12px;font-weight:400;color:var(--muted)}
+@media (max-width:860px){nav.rail .lbl small{display:none}}
+.help{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:12px 14px;margin:-6px 0 18px;font-size:14px}
+.help dt{font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;color:var(--muted);padding-top:2px}
+.help dd{margin:0}
+.help dd.now{font-weight:500}
+@media (max-width:520px){.help{grid-template-columns:1fr}.help dt{padding-top:6px}}
+.welcome{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
+.welcome h3{font-size:22px;margin-bottom:4px}
+.welcome p{margin:0 0 12px;max-width:65ch}
+.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 14px;list-style:none;padding:0;counter-reset:f}
+.flow li{position:relative;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px 10px 42px;font-size:14px;counter-increment:f;min-width:0}
+.flow li::before{content:counter(f);position:absolute;left:10px;top:10px;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);font-family:var(--f-mono);font-size:12px;display:grid;place-items:center}
+.flow li b{display:block}
+@media (max-width:760px){.flow{grid-template-columns:1fr 1fr}}
+@media (max-width:420px){.flow{grid-template-columns:1fr}}
+.firsttime{display:flex;gap:10px 16px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;margin-bottom:16px;font-size:14px}
+.howtos{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.howto{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.howto ol{margin:0 0 4px;padding-left:22px;display:flex;flex-direction:column;gap:5px}
+.howto ol li::marker{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+.howto .note{margin:0 0 8px}
+.howto .btn{align-self:flex-start;margin-top:auto}
+.faq details{border-top:1px solid var(--line);padding:10px 0}
+.faq details:last-child{border-bottom:1px solid var(--line)}
+.faq summary{cursor:pointer;font-weight:600}
+.faq details p{margin:6px 0 0;color:var(--muted)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:-4px 0 10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.tour{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(560px,calc(100% - 32px));background:var(--ink);color:var(--bg);border-radius:10px;padding:14px 16px;z-index:15;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.tour .step{font-size:11px;letter-spacing:.09em;text-transform:uppercase;opacity:.7;font-weight:600}
+.tour h4{font-family:var(--f-display);font-size:20px;margin:2px 0 4px;font-weight:700}
+.tour p{margin:0 0 10px;font-size:14px;opacity:.92}
+.tour .row{justify-content:flex-end}
+.tour .btn{background:transparent;color:var(--bg);border-color:rgba(255,255,255,.35)}
+.tour .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tour .btn.link{color:var(--bg);margin-right:auto}
+body.touring main{padding-bottom:200px}
+.demo-flag{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:2px 8px;border-radius:4px;white-space:nowrap}
+@media (prefers-reduced-motion:no-preference){.panel,.kpi,.ticket{transition:border-color .15s}}
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="brand"><div><h1>Yard<span>Desk</span></h1><small id="coName">Strong Wall</small></div></div>
+  <span class="demo-flag">Demo for Strong Wall · sample data</span>
+  <div class="spacer"></div>
+  <div class="role"><span>Viewing as</span>
+    <div class="seg" role="group" aria-label="Role">
+      <button id="roleDriver" type="button">Driver</button>
+      <button id="roleAdmin" type="button">Admin</button>
+    </div>
+    <select id="meSel" aria-label="Driver" style="width:auto"></select>
+  </div>
+</header>
+
+<div class="app">
+  <nav class="rail" id="nav" aria-label="Sections"></nav>
+  <main id="main" aria-live="polite"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="tour" id="tour" hidden role="dialog" aria-label="Tour"></div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const TODAY=new Date(); TODAY.setHours(12,0,0,0);
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const dayIso=n=>iso(addDays(TODAY,n));
+const fmtDate=s=>{const d=new Date(s+"T12:00:00");return d.toLocaleDateString("en-CA",{weekday:"short",month:"short",day:"numeric"})};
+const money=n=>"$"+Number(n).toLocaleString("en-CA",{minimumFractionDigits:0,maximumFractionDigits:0});
+const money2=n=>"$"+Number(n).toLocaleString("en-CA",{minimumFractionDigits:2,maximumFractionDigits:2});
+const n1=n=>Number(n).toLocaleString("en-CA",{maximumFractionDigits:1});
+const n0=n=>Math.round(Number(n)).toLocaleString("en-CA");
+const uid=()=>Math.random().toString(36).slice(2,9);
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- demo data ---------- */
+const CHECK_ITEMS=["Brakes & air pressure","Tires & wheels","Lights & signals","Mirrors & glass","Fluid leaks","Drum & chute","Horn & wipers","Emergency kit"];
+function seed(){
+  const r=rng(7);
+  const R=(a,b)=>a+(b-a)*r();
+  const trucks=[
+    {id:"M-101",type:"Mixer",cap:10,lastService:0},{id:"M-102",type:"Mixer",cap:10,lastService:0},
+    {id:"M-103",type:"Mixer",cap:9,lastService:0},{id:"M-104",type:"Mixer",cap:10,lastService:0},
+    {id:"M-105",type:"Mixer",cap:8,lastService:0},{id:"M-106",type:"Mixer",cap:10,lastService:0},
+    {id:"D-201",type:"Dump",cap:0,lastService:0},{id:"P-301",type:"Pickup",cap:0,lastService:0}];
+  const drivers=["Gurpreet S.","Mike T.","Ana R.","Dev P.","Luis M.","Chris B."];
+  const rate={"M-101":.58,"M-102":.61,"M-103":.56,"M-104":.79,"M-105":.53,"M-106":.6,"D-201":.48,"P-301":.16};
+  const startOdo={"M-101":168200,"M-102":142900,"M-103":201500,"M-104":187300,"M-105":96400,"M-106":155800,"D-201":122700,"P-301":61200};
+  const lastSvc={"M-101":160000,"M-102":129900,"M-103":189000,"M-104":180000,"M-105":91000,"M-106":146500,"D-201":110300,"P-301":52000};
+  const fuel=[];
+  trucks.forEach((t,ti)=>{
+    let odo=startOdo[t.id], since=0, gap=0;
+    const drv=drivers[ti%drivers.length];
+    for(let d=-14;d<=0;d++){
+      const km=Math.round(t.type==="Pickup"?R(60,140):R(110,240));
+      if(d<0||t.id!=="M-105"){odo+=km;since+=km}
+      gap++;
+      if(gap>=(t.type==="Pickup"?4:3)&&d<0||(d===0&&ti%3===0)){
+        const litres=Math.round(since*rate[t.id]*R(.95,1.05));
+        const price=+(R(1.58,1.66)).toFixed(3);
+        fuel.push({id:uid(),date:dayIso(d),truck:t.id,driver:drv,litres,price,odo,station:["Petro-Canada Centennial Pkwy","Esso Barton St E","Pioneer Hwy 8","Yard tank"][Math.floor(r()*4)]});
+        since=0;gap=0;
+      }
+    }
+    t.odo=odo; t.lastService=lastSvc[t.id];
+  });
+  const sites=[
+    {s:"Upper Centennial Pkwy — townhouse foundations",mix:"32 MPa"},{s:"Fifty Rd, Winona — basement walls",mix:"30 MPa"},
+    {s:"Barton St E — commercial slab",mix:"25 MPa"},{s:"Arvin Ave — warehouse footings",mix:"35 MPa"},
+    {s:"Main St W, Grimsby — retaining wall",mix:"32 MPa air"},{s:"Mud St W — driveway pours",mix:"32 MPa air"}];
+  const jobs=[]; const times=["06:30","07:15","08:00","09:30","11:00","13:00"];
+  for(let d=-6;d<=3;d++){
+    const n=d===0?4:(d>0?3:2+Math.floor(r()*2));
+    for(let k=0;k<n;k++){
+      const site=sites[(k+d+12)%sites.length]; const truck=trucks[(k*2+d+12)%6];
+      const ordered=Math.round(R(6,truck.cap)*2)/2;
+      const past=d<0||(d===0&&k<2);
+      const delivered=past?Math.round(ordered*R(.9,1)*2)/2:null;
+      const returned=past?Math.round(Math.max(0,ordered-delivered)*10)/10:null;
+      jobs.push({id:uid(),date:dayIso(d),time:times[k],site:site.s,mix:site.mix,truck:truck.id,driver:drivers[(k*2+d+12)%6],ordered,delivered,returned,
+        status:past?"Delivered":(d===0&&k===2?"On site":"Scheduled")});
+    }
+  }
+  const repairs=[
+    {id:uid(),truck:"D-201",issue:"Air brake pressure slow to build in the morning",priority:"critical",status:"In progress",by:"Luis M.",date:dayIso(-1),cost:0,note:"Air dryer cartridge ordered"},
+    {id:uid(),truck:"M-104",issue:"Hydraulic leak near drum motor, drum slipping under load",priority:"high",status:"Open",by:"Dev P.",date:dayIso(-2),cost:0,note:""},
+    {id:uid(),truck:"M-106",issue:"Check engine light on, DEF warning",priority:"medium",status:"Open",by:"Chris B.",date:dayIso(-3),cost:0,note:""},
+    {id:uid(),truck:"M-102",issue:"Driver side mirror cracked",priority:"low",status:"Done",by:"Mike T.",date:dayIso(-6),cost:184,note:"Replaced mirror glass"},
+    {id:uid(),truck:"P-301",issue:"Rear tires worn past wear bars",priority:"medium",status:"Done",by:"Ana R.",date:dayIso(-9),cost:612,note:"2 new rear tires"}];
+  const logs=[];
+  for(let d=-2;d<=0;d++){
+    drivers.forEach((dr,i)=>{
+      if(d===0&&i>3)return;
+      const t=trucks[i];
+      const drive=+(d===0&&i===1?12.4:R(7.5,11.5)).toFixed(1);
+      const defects=(d===-1&&i===3)?["Fluid leaks"]:[];
+      logs.push({id:uid(),date:dayIso(d),driver:dr,truck:t.id,drive,duty:+(drive+R(1,2.2)).toFixed(1),startKm:t.odo-Math.round(R(150,230)),endKm:t.odo,defects,notes:defects.length?"Drip under drum motor":""});
+    });
+  }
+  const kb=[
+    {id:uid(),title:"Fuel card rules",body:"Use the company fuel card for diesel and DEF only. Enter the odometer at the pump and log every fill-up in YardDesk the same day. Keep the receipt until month end. Fill at the yard tank first when you are within 10 km of the yard."},
+    {id:uid(),title:"Concrete washout",body:"Wash out only at the yard washout pit or a washout bin on site. Never wash out into storm drains or on the road. Log any returned concrete over 0.5 m³ on the job so dispatch can track waste."},
+    {id:uid(),title:"Daily inspection",body:"Do the daily trip inspection before your first load, every day. Any defect gets logged in YardDesk and creates a repair ticket automatically. Major defects (brakes, steering, tires, lights) mean the truck does not leave the yard until a mechanic clears it."},
+    {id:uid(),title:"Breakdowns and accidents",body:"Make the scene safe first, then call dispatch. Take photos of the truck and the scene. Do not admit fault. Report it in YardDesk under Repairs with priority Critical."},
+    {id:uid(),title:"Hours of service",body:"Under the Canadian daily limits a driver can drive up to 13 hours and be on duty up to 14 hours in a day, with at least 10 hours off duty. YardDesk flags anyone over 12 hours driving so dispatch can plan around it. Check the official rules for cycle limits."},
+    {id:uid(),title:"Who to call",body:"Dispatch: ext. 201 (5:30 am to 6 pm). Shop / mechanic: ext. 230. After hours breakdown line: posted on the yard board."}];
+  return {v:1,company:"Strong Wall",serviceKm:15000,trucks,drivers,fuel,jobs,repairs,logs,kb,role:"admin",me:"Gurpreet S."};
+}
+const KEY="yarddesk-strongwall-v1";
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){S=null}
+if(!S||S.v!==1)S=seed();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* ---------- derived ---------- */
+const truck=id=>S.trucks.find(t=>t.id===id);
+const isAdmin=()=>S.role==="admin";
+function fuelStats(){
+  const byT={};
+  S.trucks.forEach(t=>byT[t.id]={litres14:0,cost14:0,eff:[]});
+  const sorted=[...S.fuel].sort((a,b)=>a.odo-b.odo);
+  const last={};
+  sorted.forEach(f=>{
+    const b=byT[f.truck]; if(!b)return;
+    if(f.date>=dayIso(-13)){b.litres14+=f.litres;b.cost14+=f.litres*f.price}
+    if(last[f.truck]&&f.odo>last[f.truck].odo){f._eff=f.litres/(f.odo-last[f.truck].odo)*100;b.eff.push(f._eff)}
+    last[f.truck]=f;
+  });
+  Object.values(byT).forEach(b=>b.avg=b.eff.length?b.eff.reduce((a,c)=>a+c,0)/b.eff.length:null);
+  const mixers=S.trucks.filter(t=>t.type==="Mixer").map(t=>byT[t.id].avg).filter(Boolean);
+  const fleetMixer=mixers.length?mixers.reduce((a,c)=>a+c,0)/mixers.length:0;
+  return {byT,fleetMixer};
+}
+function weekFuel(){const from=dayIso(-6);let L=0,C=0;S.fuel.forEach(f=>{if(f.date>=from){L+=f.litres;C+=f.litres*f.price}});return{L,C}}
+function concrete(fromIso){let o=0,d=0,r=0;S.jobs.forEach(j=>{if(j.date>=fromIso&&j.date<=dayIso(0)&&j.delivered!=null){o+=j.ordered;d+=j.delivered;r+=j.returned||0}});return{o,d,r,w:o?r/o*100:0}}
+function serviceStatus(t){const used=t.odo-t.lastService;const left=S.serviceKm-used;return{used,left,due:left<=1500,over:left<0}}
+function alerts(){
+  const out=[]; const fs=fuelStats();
+  S.repairs.filter(x=>x.status!=="Done"&&(x.priority==="critical"||x.priority==="high")).forEach(x=>out.push({lvl:x.priority==="critical"?"bad":"warn",html:`<b>${esc(x.truck)}</b> ${esc(x.issue)} <span class="muted">· ${esc(x.status)}</span>`,go:"repairs"}));
+  S.trucks.forEach(t=>{const s=serviceStatus(t);if(s.over)out.push({lvl:"bad",html:`<b>${t.id}</b> is ${n0(-s.left)} km past its service interval`,go:"admin"});else if(s.due)out.push({lvl:"warn",html:`<b>${t.id}</b> service due in ${n0(s.left)} km`,go:"admin"})});
+  S.trucks.filter(t=>t.type==="Mixer").forEach(t=>{const a=fs.byT[t.id].avg;if(a&&fs.fleetMixer&&a>fs.fleetMixer*1.15)out.push({lvl:"warn",html:`<b>${t.id}</b> is burning ${Math.round((a/fs.fleetMixer-1)*100)}% more fuel than the other mixers (${n1(a)} vs ${n1(fs.fleetMixer)} L/100 km). Check for leaks or idling.`,go:"fuel"})});
+  S.logs.filter(l=>l.date===dayIso(0)&&l.drive>12).forEach(l=>out.push({lvl:"warn",html:`<b>${esc(l.driver)}</b> has driven ${l.drive} h today, close to the 13 h limit`,go:"logs"}));
+  const missing=S.drivers.filter(d=>!S.logs.some(l=>l.date===dayIso(0)&&l.driver===d)&&S.jobs.some(j=>j.date===dayIso(0)&&j.driver===d));
+  if(missing.length)out.push({lvl:"",html:`No daily inspection yet today from <b>${missing.map(esc).join(", ")}</b>`,go:"logs"});
+  return out;
+}
+const openRepairs=()=>S.repairs.filter(x=>x.status!=="Done");
+
+/* ---------- navigation ---------- */
+const VIEWS=[["today","Today",""],["guide","Guide",""],["schedule","Schedule & concrete","Pours and concrete used"],["fuel","Fuel log","Every fill-up"],["repairs","Repairs","Problems sent to the shop"],["logs","Daily logs","Trip sheet + inspection"],["assistant","Ask YardDesk","Ask a question"],["admin","Admin","Rules, trucks, people"]];
+const HELP={
+  today:["A whiteboard, phone calls and walking the yard to find out what's going on.","One screen shows what's urgent, what fuel is costing, which trucks need work, and today's pours. Red means urgent, amber means soon, green means fine."],
+  schedule:["A paper dispatch sheet. Nobody really knows how much concrete gets wasted.","The office adds pours. After each one the driver taps Mark delivered and types how much came back. Waste per site is worked out automatically."],
+  fuel:["Fuel receipts in an envelope, added up at month end.","The driver logs the fill-up at the pump: litres, price and odometer. YardDesk works out fuel use per truck and flags any truck burning too much."],
+  repairs:["Paper slips, or telling the mechanic and hoping he remembers.","The driver sends the problem from their phone. The shop changes the status as they work on it, so everyone can see where it's at."],
+  logs:["A paper trip sheet and inspection form for every driver, every day.","The driver fills it in on their phone in about a minute. Tapping Defect on anything wrong sends a repair ticket to the shop straight away."],
+  assistant:["Calling the office and asking someone to look it up.","Type a question in plain English, like \"Which trucks are due for service?\". It answers from the live data and from the company rules the admin writes."],
+  admin:["Policies in a binder nobody reads.","Only the manager sees this. Write the company rules the assistant answers from, and add trucks and drivers."]};
+const TOUR=[
+  ["guide","Start with the Guide","Step-by-step instructions for drivers, the office and managers live here. Come back any time."],
+  ["today","This is the home screen","Everything that needs attention is in one list at the top, with the most urgent first. The numbers show this week's fuel spend, repairs waiting and concrete delivered."],
+  ["logs","Drivers start the day here","Instead of a paper trip sheet, the driver does the inspection on their phone. If something's wrong they tap Defect, and a repair ticket goes to the shop automatically."],
+  ["repairs","The shop sees it right away","Every problem a driver reports lands here. The mechanic updates the status and cost, so the manager never has to chase anyone."],
+  ["fuel","Fuel without the receipts","Each fill-up gets logged at the pump. YardDesk works out how much fuel each truck uses and flags the ones burning too much."],
+  ["schedule","Pours and concrete","The office schedules pours. Drivers record what was delivered and what came back, so you can see concrete waste per site."],
+  ["assistant","Ask it anything","Anyone can ask questions in plain English. Try the suggested questions below the chat."],
+  ["admin","The manager is in control","Admins write the company rules the assistant uses, and manage trucks and drivers. Drivers don't see this page."],
+  ["today","Try it yourself","Switch to Driver at the top to see what a driver sees, then log a fill-up or report a problem and watch the home screen update. The Guide is in the menu whenever you need it."]];
+let view=(location.hash||"").replace("#","");
+if(!VIEWS.some(v=>v[0]===view))view="today";
+let selDay=dayIso(0); let fuelFilter="all"; let chat=[]; let busy=false; let checks={}; let tourStep=-1; let allAlerts=false;
+function renderTour(){
+  const el=$("#tour"); document.body.classList.toggle("touring",tourStep>=0);
+  if(tourStep<0){el.hidden=true;return}
+  const [,t,txt]=TOUR[tourStep]; el.hidden=false;
+  el.innerHTML=`<div class="step">Tour · ${tourStep+1} of ${TOUR.length}</div><h4>${esc(t)}</h4><p>${esc(txt)}</p><div class="row"><button class="btn link small" type="button" id="tourEnd">End tour</button>${tourStep>0?`<button class="btn small" type="button" id="tourBack">Back</button>`:""}<button class="btn small primary" type="button" id="tourNext">${tourStep===TOUR.length-1?"Done":"Next"}</button></div>`;
+}
+function tourGo(i){tourStep=i;if(i>=0&&i<TOUR.length){const v=TOUR[i][0];if(v==="admin"&&!isAdmin()){S.role="admin";save()}view=v;try{history.replaceState(null,"","#"+v)}catch(e){}render();window.scrollTo(0,0)}else{tourStep=-1;render()}}
+function help(k){const h=HELP[k];return h?`<dl class="help"><dt>Before</dt><dd>${esc(h[0])}</dd><dt>With YardDesk</dt><dd class="now">${esc(h[1])}</dd></dl>`:""}
+function renderNav(){
+  const crit=openRepairs().filter(x=>x.priority==="critical").length;
+  $("#nav").innerHTML=VIEWS.filter(v=>v[0]!=="admin"||isAdmin()).map(([k,l,d])=>`<button type="button" data-nav="${k}" ${k===view?'aria-current="page"':""}><span class="lbl">${l}</span>${k==="repairs"&&crit?`<span class="badge" title="Critical repairs">${crit}</span>`:""}</button>`).join("");
+  $("#roleDriver").setAttribute("aria-pressed",String(!isAdmin()));
+  $("#roleAdmin").setAttribute("aria-pressed",String(isAdmin()));
+  const ms=$("#meSel"); ms.hidden=isAdmin();
+  ms.innerHTML=S.drivers.map(d=>`<option ${d===S.me?"selected":""}>${esc(d)}</option>`).join("");
+  $("#coName").textContent=S.company;
+}
+function go(k){view=k;try{history.replaceState(null,"","#"+k)}catch(e){}render();window.scrollTo(0,0)}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2200)}
+
+/* ---------- views ---------- */
+const truckOpts=sel=>S.trucks.map(t=>`<option ${t.id===sel?"selected":""}>${t.id}</option>`).join("");
+const driverOpts=sel=>S.drivers.map(d=>`<option ${d===sel?"selected":""}>${esc(d)}</option>`).join("");
+const statusPill=s=>`<span class="pill ${s==="Delivered"||s==="Done"?"ok":s==="On site"||s==="In progress"?"acc":""}">${esc(s)}</span>`;
+
+function vToday(){
+  const wf=weekFuel(), fs=fuelStats(), c=concrete(dayIso(-6)), open=openRepairs(), crit=open.filter(x=>x.priority==="critical").length;
+  const al=alerts();
+  const todays=S.jobs.filter(j=>j.date===dayIso(0)).sort((a,b)=>a.time.localeCompare(b.time));
+  const maxL=Math.max(1,...S.trucks.map(t=>fs.byT[t.id].litres14));
+  const hot=al.filter(a=>a.go==="fuel").map(a=>a.html.match(/<b>(.*?)<\/b>/)[1]);
+  const mineNote=!isAdmin()?`<p class="note" style="margin-top:-12px">Signed in as ${esc(S.me)}. Your jobs are marked in amber.</p>`:"";
+  const order={bad:0,warn:1,"":2}; al.sort((a,b)=>order[a.lvl]-order[b.lvl]);
+  const shown=allAlerts?al:al.slice(0,4);
+  const welcome=S.hideWelcome?"":`<div class="firsttime"><span>First time using YardDesk? The Guide explains each screen in a few steps.</span><span class="row"><button class="btn small primary" type="button" data-nav="guide">Open the Guide</button><button class="btn small" type="button" id="hideWelcome">Dismiss</button></span></div>`;
+  return `<h2 class="view">${fmtDate(dayIso(0))}</h2><p class="sub">${esc(S.company)}</p>${welcome}${mineNote}
+  <div class="kpis">
+    <div class="kpi"><div class="eyebrow">Diesel, last 7 days</div><div class="val num">${money(wf.C)}</div><div class="foot"><span class="num">${n0(wf.L)}</span> litres in 7 days</div></div>
+    <div class="kpi"><div class="eyebrow">Mixer fuel use</div><div class="val num">${n1(fs.fleetMixer)}<span class="u">L/100 km</span></div><div class="foot">Average of all mixers</div></div>
+    <div class="kpi"><div class="eyebrow">Open repairs</div><div class="val num">${open.length}</div><div class="foot">${crit?`<span style="color:var(--bad);font-weight:600">${crit} truck${crit>1?"s":""} down</span>`:"No trucks down"}</div></div>
+    <div class="kpi"><div class="eyebrow">Concrete delivered, 7 days</div><div class="val num">${n1(c.d)}<span class="u">m³</span></div><div class="foot">${n1(c.r)} m³ returned (${n1(c.w)}% waste)</div></div>
+  </div>
+  <div class="grid cols-2">
+    <div class="grid" style="align-content:start">
+      <section class="panel"><h3>Alerts</h3><div class="legend"><span><i style="background:var(--bad)"></i>Urgent</span><span><i style="background:var(--warn)"></i>Soon</span><span><i style="background:var(--muted)"></i>Reminder</span></div><div class="alerts">${al.length?shown.map(a=>`<div class="alert ${a.lvl}"><div>${a.html}</div><button class="btn small go" data-nav="${a.go}" type="button">Open</button></div>`).join(""):`<div class="alert ok"><div>All clear. Nothing needs attention right now.</div></div>`}</div>${al.length>4?`<div style="margin-top:10px"><button class="btn small" type="button" id="moreAlerts">${allAlerts?"Show fewer":`Show ${al.length-4} more`}</button></div>`:""}</section>
+      <section class="panel"><h3>Today's pours</h3><div class="tablewrap"><table><thead><tr><th>Time</th><th>Site</th><th>Truck</th><th>Driver</th><th class="r">m³</th><th>Status</th></tr></thead><tbody>
+      ${todays.map(j=>`<tr class="${!isAdmin()&&j.driver===S.me?"mine":""}"><td class="num">${j.time}</td><td>${esc(j.site)}<div class="note">${esc(j.mix)}</div></td><td class="num">${j.truck}</td><td>${esc(j.driver)}</td><td class="r num">${n1(j.ordered)}</td><td>${statusPill(j.status)}</td></tr>`).join("")||`<tr><td colspan="6" class="muted">No pours scheduled today.</td></tr>`}
+      </tbody></table></div></section>
+    </div>
+    <div class="grid" style="align-content:start">
+      <section class="panel"><h3>Diesel by truck, last 14 days</h3><div class="bars">
+      ${S.trucks.map(t=>{const L=fs.byT[t.id].litres14;return `<div class="bar"><span class="num">${t.id}</span><div class="track"><div class="fill ${hot.includes(t.id)?"hot":""}" style="width:${(L/maxL*100).toFixed(1)}%"></div></div><span class="num r" style="text-align:right">${n0(L)} L</span></div>`}).join("")}
+      </div><p class="note" style="margin-bottom:0">Amber means the truck is using noticeably more fuel per km than the rest of the mixers.</p></section>
+      <section class="panel"><h3>Fleet status</h3><div class="tablewrap"><table><thead><tr><th>Truck</th><th class="r">Odometer</th><th>Service</th><th>Repairs</th></tr></thead><tbody>
+      ${S.trucks.map(t=>{const s=serviceStatus(t);const r=open.filter(x=>x.truck===t.id);return `<tr><td class="num">${t.id}<div class="note">${t.type}</div></td><td class="r num">${n0(t.odo)}</td><td>${s.over?`<span class="pill bad">Overdue</span>`:s.due?`<span class="pill warn">Due ${n0(s.left)} km</span>`:`<span class="pill ok">${n0(s.left)} km left</span>`}</td><td>${r.length?r.map(x=>`<span class="pill ${x.priority==="critical"?"bad":x.priority==="high"?"warn":""}">${esc(x.priority)}</span>`).join(" "):`<span class="muted">—</span>`}</td></tr>`}).join("")}
+      </tbody></table></div></section>
+    </div>
+  </div>`;
+}
+
+function vSchedule(){
+  const days=[];for(let d=-6;d<=3;d++)days.push(dayIso(d));
+  const list=S.jobs.filter(j=>j.date===selDay).sort((a,b)=>a.time.localeCompare(b.time));
+  const bySite={};S.jobs.filter(j=>j.date>=dayIso(-6)&&j.delivered!=null).forEach(j=>{const b=bySite[j.site]||(bySite[j.site]={o:0,d:0,r:0,n:0});b.o+=j.ordered;b.d+=j.delivered;b.r+=j.returned||0;b.n++});
+  const canEdit=j=>isAdmin()||j.driver===S.me;
+  return `<h2 class="view">Schedule & concrete</h2><p class="sub">Pours by day. Drivers record delivered and returned concrete.</p>
+  <div class="days" role="group" aria-label="Day">${days.map(d=>{const dt=new Date(d+"T12:00:00");return `<button class="day" type="button" data-day="${d}" aria-pressed="${d===selDay}"><span>${d===dayIso(0)?"Today":dt.toLocaleDateString("en-CA",{weekday:"short"})}</span><b>${dt.getDate()}</b></button>`}).join("")}</div>
+  <section class="panel"><div class="row" style="justify-content:space-between;margin-bottom:8px"><h3 style="margin:0">${fmtDate(selDay)}</h3><span class="note">${list.length} pour${list.length===1?"":"s"} · ${n1(list.reduce((a,j)=>a+j.ordered,0))} m³ ordered</span></div>
+  <div class="tablewrap"><table><thead><tr><th>Time</th><th>Site & mix</th><th>Truck</th><th>Driver</th><th class="r">Ordered</th><th class="r">Delivered</th><th class="r">Returned</th><th>Status</th></tr></thead><tbody>
+  ${list.map(j=>`<tr class="${!isAdmin()&&j.driver===S.me?"mine":""}"><td class="num">${j.time}</td><td>${esc(j.site)}<div class="note">${esc(j.mix)}</div></td><td class="num">${j.truck}</td><td>${esc(j.driver)}</td><td class="r num">${n1(j.ordered)}</td>
+   ${j.delivered!=null?`<td class="r num">${n1(j.delivered)}</td><td class="r num">${n1(j.returned)}</td><td>${statusPill(j.status)}</td>`:
+   canEdit(j)&&selDay<=dayIso(0)?`<td class="r"><input id="del-${j.id}" class="num" inputmode="decimal" placeholder="${n1(j.ordered)}" style="width:80px;text-align:right"></td><td class="r"><input id="ret-${j.id}" class="num" inputmode="decimal" placeholder="0" style="width:70px;text-align:right"></td><td><button class="btn small primary" type="button" data-deliver="${j.id}">Mark delivered</button></td>`:
+   `<td class="r muted">—</td><td class="r muted">—</td><td>${statusPill(j.status)}</td>`}</tr>`).join("")||`<tr><td colspan="8" class="muted">Nothing scheduled for this day.</td></tr>`}
+  </tbody></table></div></section>
+  ${isAdmin()?`<section class="panel" style="margin-top:16px"><h3>Add a pour</h3><form class="card" id="jobForm">
+    <label class="f">Date<input id="jDate" type="date" value="${selDay}" required></label>
+    <label class="f">Time<input id="jTime" type="time" value="07:00" required></label>
+    <label class="f" style="grid-column:span 2">Site<input id="jSite" placeholder="e.g. Highland Rd W — townhouse footings" required></label>
+    <label class="f">Mix<select id="jMix"><option>25 MPa</option><option>30 MPa</option><option selected>32 MPa</option><option>32 MPa air</option><option>35 MPa</option></select></label>
+    <label class="f">m³ ordered<input id="jM3" type="number" step="0.5" min="0.5" max="12" value="8" required></label>
+    <label class="f">Truck<select id="jTruck">${S.trucks.filter(t=>t.type==="Mixer").map(t=>`<option>${t.id}</option>`).join("")}</select></label>
+    <label class="f">Driver<select id="jDriver">${driverOpts()}</select></label>
+    <button class="btn primary" type="submit">Add to schedule</button></form></section>`:""}
+  <section class="panel" style="margin-top:16px"><h3>Concrete by site, last 7 days</h3><div class="tablewrap"><table><thead><tr><th>Site</th><th class="r">Loads</th><th class="r">Ordered m³</th><th class="r">Delivered m³</th><th class="r">Returned m³</th><th class="r">Waste</th></tr></thead><tbody>
+  ${Object.entries(bySite).sort((a,b)=>b[1].o-a[1].o).map(([s,b])=>{const w=b.o?b.r/b.o*100:0;return `<tr><td>${esc(s)}</td><td class="r num">${b.n}</td><td class="r num">${n1(b.o)}</td><td class="r num">${n1(b.d)}</td><td class="r num">${n1(b.r)}</td><td class="r"><span class="pill ${w>6?"bad":w>3?"warn":"ok"}">${n1(w)}%</span></td></tr>`}).join("")}
+  </tbody></table></div></section>`;
+}
+
+function vFuel(){
+  const fs=fuelStats();
+  const rows=[...S.fuel].filter(f=>fuelFilter==="all"||f.truck===fuelFilter).sort((a,b)=>b.date.localeCompare(a.date)||b.odo-a.odo);
+  const myTruck=(S.logs.filter(l=>l.driver===S.me).sort((a,b)=>b.date.localeCompare(a.date))[0]||{}).truck;
+  return `<h2 class="view">Fuel log</h2><p class="sub">All fill-ups. Fuel use per truck is calculated from the odometer.</p>
+  <section class="panel"><h3>Log a fill-up</h3><form class="card" id="fuelForm">
+    <label class="f">Date<input id="fDate" type="date" value="${dayIso(0)}" required></label>
+    <label class="f">Truck<select id="fTruck">${truckOpts(myTruck)}</select></label>
+    <label class="f">Driver<select id="fDriver">${driverOpts(isAdmin()?undefined:S.me)}</select></label>
+    <label class="f">Litres<input id="fLitres" type="number" min="1" step="0.1" placeholder="e.g. 240" required></label>
+    <label class="f">Price per litre<input id="fPrice" type="number" min="0.5" step="0.001" value="1.629" required></label>
+    <label class="f">Odometer (km)<input id="fOdo" type="number" min="0" step="1" placeholder="from the dash" required></label>
+    <label class="f" style="grid-column:span 2">Station<input id="fStation" placeholder="e.g. Esso Barton St E"></label>
+    <button class="btn primary" type="submit">Save fill-up</button></form></section>
+  <section class="panel" style="margin-top:16px"><div class="row" style="justify-content:space-between;margin-bottom:8px"><h3 style="margin:0">Fill-ups</h3>
+    <label class="row note">Truck <select id="fFilter" style="width:auto"><option value="all">All trucks</option>${S.trucks.map(t=>`<option ${t.id===fuelFilter?"selected":""}>${t.id}</option>`).join("")}</select></label></div>
+  <div class="tablewrap"><table><thead><tr><th>Date</th><th>Truck</th><th>Driver</th><th class="r">Litres</th><th class="r">$/L</th><th class="r">Cost</th><th class="r">Odometer</th><th class="r">L/100 km</th><th>Station</th></tr></thead><tbody>
+  ${rows.map(f=>{const avg=fs.fleetMixer;const hi=f._eff&&truck(f.truck)?.type==="Mixer"&&f._eff>avg*1.15;return `<tr><td>${fmtDate(f.date)}</td><td class="num">${f.truck}</td><td>${esc(f.driver)}</td><td class="r num">${n1(f.litres)}</td><td class="r num">${Number(f.price).toFixed(3)}</td><td class="r num">${money2(f.litres*f.price)}</td><td class="r num">${n0(f.odo)}</td><td class="r num">${f._eff?`<span class="pill ${hi?"warn":""}">${n1(f._eff)}</span>`:`<span class="muted">—</span>`}</td><td class="note">${esc(f.station||"")}</td></tr>`}).join("")}
+  </tbody></table></div></section>`;
+}
+
+function vRepairs(){
+  const order={critical:0,high:1,medium:2,low:3}, st={"Open":0,"In progress":1,"Done":2};
+  const list=[...S.repairs].sort((a,b)=>st[a.status]-st[b.status]||order[a.priority]-order[b.priority]||b.date.localeCompare(a.date));
+  const spent=S.repairs.reduce((a,x)=>a+(+x.cost||0),0);
+  return `<h2 class="view">Repairs</h2><p class="sub">Problems reported by drivers, and the shop's progress on each.</p>
+  <section class="panel"><h3>Report a problem</h3><form class="card" id="repForm">
+    <label class="f">Truck<select id="rTruck">${truckOpts()}</select></label>
+    <label class="f">Priority<select id="rPri"><option value="low">Low: can wait</option><option value="medium" selected>Medium: this week</option><option value="high">High: fix soon</option><option value="critical">Critical: truck is down</option></select></label>
+    <label class="f" style="grid-column:1/-1">What's wrong?<input id="rIssue" placeholder="e.g. Chute won't lock in the up position" required></label>
+    <button class="btn primary" type="submit">Send to shop</button></form></section>
+  <div class="row" style="justify-content:space-between;margin:20px 0 10px"><h3 style="margin:0">Tickets</h3><span class="note">${openRepairs().length} open · ${money(spent)} spent on closed jobs</span></div>
+  <div class="tickets">${list.map(x=>`<article class="ticket p-${x.priority}">
+    <div><div class="t"><span class="num">${x.truck}</span> · ${esc(x.issue)}</div><div class="meta">Reported by ${esc(x.by)} on ${fmtDate(x.date)}${x.note?` · ${esc(x.note)}`:""}</div></div>
+    <div class="row" style="align-self:start"><span class="pill ${x.priority==="critical"?"bad":x.priority==="high"?"warn":x.priority==="medium"?"acc":""}">${x.priority}</span>${statusPill(x.status)}</div>
+    ${isAdmin()?`<div class="ctl"><label class="note row">Status <select data-rstatus="${x.id}">${["Open","In progress","Done"].map(s=>`<option ${s===x.status?"selected":""}>${s}</option>`).join("")}</select></label>
+      <label class="note row">Cost $ <input data-rcost="${x.id}" class="num" type="number" min="0" step="1" value="${+x.cost||""}" style="width:90px"></label>
+      <label class="note row" style="flex:1;min-width:180px">Shop note <input data-rnote="${x.id}" value="${esc(x.note)}" placeholder="e.g. Parts ordered"></label></div>`:""}
+  </article>`).join("")}</div>`;
+}
+
+function vLogs(){
+  const me=isAdmin()?S.drivers[0]:S.me;
+  const myTruck=(S.logs.filter(l=>l.driver===me).sort((a,b)=>b.date.localeCompare(a.date))[0]||{}).truck||S.trucks[0].id;
+  const list=[...S.logs].sort((a,b)=>b.date.localeCompare(a.date)||a.driver.localeCompare(b.driver));
+  CHECK_ITEMS.forEach(c=>{if(!(c in checks))checks[c]="ok"});
+  return `<h2 class="view">Daily logs</h2><p class="sub">Daily trip log and pre-trip inspection. A defect creates a repair ticket.</p>
+  <section class="panel"><h3>Today's log & trip inspection</h3><form class="card" id="logForm">
+    <label class="f">Driver<select id="lDriver">${driverOpts(me)}</select></label>
+    <label class="f">Truck<select id="lTruck">${truckOpts(myTruck)}</select></label>
+    <label class="f">Start km<input id="lStart" type="number" min="0" placeholder="${n0(truck(myTruck).odo)}" required></label>
+    <label class="f">End km<input id="lEnd" type="number" min="0" placeholder="end of day" required></label>
+    <label class="f">Hours driving<input id="lDrive" type="number" min="0" max="16" step="0.1" placeholder="e.g. 9.5" required></label>
+    <label class="f">Hours on duty<input id="lDuty" type="number" min="0" max="16" step="0.1" placeholder="e.g. 11" required></label>
+    <div class="checks" role="group" aria-label="Inspection">${CHECK_ITEMS.map((c,i)=>`<div class="check"><span>${c}</span><div class="seg"><button type="button" data-chk="${i}" data-val="ok" aria-pressed="${checks[c]==="ok"}">OK</button><button type="button" class="def" data-chk="${i}" data-val="defect" aria-pressed="${checks[c]==="defect"}">Defect</button></div></div>`).join("")}</div>
+    <label class="f" style="grid-column:1/-1">Notes<input id="lNotes" placeholder="Describe any defect, e.g. slow leak at drum motor"></label>
+    <button class="btn primary" type="submit">Submit log</button></form></section>
+  <section class="panel" style="margin-top:16px"><h3>Recent logs</h3><div class="tablewrap"><table><thead><tr><th>Date</th><th>Driver</th><th>Truck</th><th class="r">km</th><th class="r">Driving</th><th class="r">On duty</th><th>Inspection</th></tr></thead><tbody>
+  ${list.map(l=>`<tr><td>${fmtDate(l.date)}</td><td>${esc(l.driver)}</td><td class="num">${l.truck}</td><td class="r num">${n0(l.endKm-l.startKm)}</td><td class="r num">${l.drive>12?`<span class="pill warn">${n1(l.drive)} h</span>`:n1(l.drive)+" h"}</td><td class="r num">${n1(l.duty)} h</td><td>${l.defects.length?`<span class="pill bad">${l.defects.length} defect${l.defects.length>1?"s":""}</span> <span class="note">${l.defects.map(esc).join(", ")}</span>`:`<span class="pill ok">Passed</span>`}</td></tr>`).join("")}
+  </tbody></table></div><p class="note" style="margin-bottom:0">Drivers over 12 hours of driving are flagged. The daily limit in Canada is 13 hours driving and 14 hours on duty.</p></section>`;
+}
+
+const SUGGEST=["Which truck is using the most fuel?","Which trucks are due for service?","What's on the schedule today?","How much concrete did we waste this week?","Any open repairs?","What do I do if my truck breaks down?"];
+function vAssistant(){
+  const mode=aiMode();
+  return `<h2 class="view">Ask YardDesk</h2><p class="sub">Ask about trucks, fuel, pours, repairs and company rules.</p>
+  <section class="panel">
+    <div class="row" style="justify-content:space-between"><span class="eyebrow">Answers from live YardDesk data</span>${chat.length?`<button class="btn small" type="button" id="clearChat">Clear chat</button>`:""}</div>
+    <div class="chat" id="chat">${chat.length?chat.map(m=>`<div class="msg ${m.role==="user"?"me":"bot"}">${m.role==="user"?"":`<span class="who">YardDesk</span>`}${esc(m.text)}</div>`).join(""):`<div class="msg bot"><span class="who">YardDesk</span>Hi! Ask me about fuel, trucks, today's pours, concrete waste, repairs or company rules. Try one of the questions below.</div>`}${busy?`<div class="msg bot"><span class="who">YardDesk</span>Thinking…</div>`:""}</div>
+    <div class="chips">${SUGGEST.map(s=>`<button type="button" class="chip" data-ask="${esc(s)}">${esc(s)}</button>`).join("")}</div>
+    <form class="askbar" id="askForm"><input id="askInput" placeholder="Ask anything about the yard…" autocomplete="off" ${busy?"disabled":""}><button class="btn primary" type="submit" ${busy?"disabled":""}>Ask</button></form>
+  </section>`;
+}
+
+function vAdmin(){
+  if(!isAdmin())return `<h2 class="view">Admin</h2><p class="sub">Switch to Admin at the top to manage settings.</p>`;
+  return `<h2 class="view">Admin</h2><p class="sub">Company rules for the assistant, trucks and drivers. Only admins see this page.</p>
+  <div class="grid cols-2">
+    <section class="panel"><h3>Company rules for the assistant</h3><p class="note" style="margin-top:-4px">Write these in plain words. Every employee's questions are answered from this, so update it when a policy changes.</p>
+      <div class="kb">${S.kb.map(k=>`<div class="kbitem"><input data-kbt="${k.id}" value="${esc(k.title)}" aria-label="Title" style="font-weight:600"><textarea data-kbb="${k.id}" aria-label="Rule">${esc(k.body)}</textarea><div><button class="btn small" type="button" data-kbdel="${k.id}">Remove</button></div></div>`).join("")}</div>
+      <div style="margin-top:12px"><button class="btn" type="button" id="kbAdd">Add a rule</button></div></section>
+    <div class="grid" style="align-content:start">
+      <section class="panel"><h3>Company</h3><form class="card" id="coForm" style="grid-template-columns:1fr">
+        <label class="f">Company name<input id="coIn" value="${esc(S.company)}"></label>
+        <label class="f">Service interval (km)<input id="svcIn" type="number" min="1000" step="500" value="${S.serviceKm}"></label>
+        <button class="btn primary" type="submit">Save</button></form></section>
+      <section class="panel"><h3>Fleet</h3><div class="tablewrap"><table><thead><tr><th>Truck</th><th>Type</th><th class="r">Odometer</th><th class="r">Last service</th><th></th></tr></thead><tbody>
+        ${S.trucks.map(t=>`<tr><td class="num">${t.id}</td><td>${t.type}</td><td class="r num">${n0(t.odo)}</td><td class="r num">${n0(t.lastService)}</td><td class="r"><button class="btn small" type="button" data-svc="${t.id}">Serviced today</button></td></tr>`).join("")}
+      </tbody></table></div>
+      <form class="row" id="truckForm" style="margin-top:10px"><input id="tId" placeholder="Unit #, e.g. M-107" required style="flex:1;min-width:120px"><select id="tType" style="width:auto"><option>Mixer</option><option>Dump</option><option>Pickup</option></select><input id="tOdo" type="number" placeholder="Odometer" required style="width:120px"><button class="btn" type="submit">Add truck</button></form></section>
+      <section class="panel"><h3>Drivers</h3><div class="row">${S.drivers.map(d=>`<span class="pill">${esc(d)}</span>`).join("")}</div>
+      <form class="row" id="drvForm" style="margin-top:10px"><input id="dName" placeholder="Name, e.g. Priya K." required style="flex:1;min-width:140px"><button class="btn" type="submit">Add driver</button></form></section>
+      <section class="panel"><h3>Demo data</h3><p class="note" style="margin-top:-4px">Changes are kept in this browser only. Reset puts the sample data back.</p><div class="row"><button class="btn" type="button" id="showWelcome">Show the first-time tip again</button><button class="btn" type="button" id="resetBtn">Reset demo data</button> <span id="resetConfirm"></span></div></section>
+    </div>
+  </div>`;
+}
+
+
+const GUIDE={
+ driver:[
+  {t:"Do your daily log and inspection",go:"logs",steps:["Open <b>Daily logs</b>.","Pick your name and your truck.","Enter your start and end km, and your hours driving and on duty.","Go through the checklist. Leave it on <b>OK</b>, or tap <b>Defect</b> if something is wrong and describe it in Notes.","Tap <b>Submit log</b>."],after:"If you marked a defect, the shop gets a repair ticket straight away. You don't need to tell anyone."},
+  {t:"Log a fill-up",go:"fuel",steps:["Open <b>Fuel log</b>.","Enter the litres and the price per litre from the pump.","Enter the odometer from the dash.","Tap <b>Save fill-up</b>."],after:"The odometer reading is what lets YardDesk spot a truck that's using too much fuel."},
+  {t:"Report a problem with a truck",go:"repairs",steps:["Open <b>Repairs</b>.","Pick the truck and how urgent it is. Use <b>Critical</b> only if the truck can't safely run.","Describe what's wrong in a sentence.","Tap <b>Send to shop</b>."],after:"You'll see the ticket move from Open to In progress to Done as the shop works on it."},
+  {t:"Finish a pour",go:"schedule",steps:["Open <b>Schedule & concrete</b>. Today is already selected.","Find your pour. It has an amber line on the left.","Type how many m³ you delivered and how many came back.","Tap <b>Mark delivered</b>."],after:"This is how the office knows how much concrete was used and wasted on each site."},
+  {t:"Ask a question",go:"assistant",steps:["Open <b>Ask YardDesk</b>.","Type your question, or tap one of the suggestions.","Read the answer. It comes from the data in YardDesk and the company rules."],after:"Good questions: \"What do I do if my truck breaks down?\" or \"What's on the schedule today?\""}],
+ office:[
+  {t:"Add a pour to the schedule",go:"schedule",admin:true,steps:["Switch to <b>Admin</b> at the top.","Open <b>Schedule & concrete</b>.","Fill in <b>Add a pour</b>: date, time, site, mix, m³, truck and driver.","Tap <b>Add to schedule</b>."],after:"The driver sees it on their phone right away, marked as theirs."},
+  {t:"Update a repair ticket",go:"repairs",admin:true,steps:["Switch to <b>Admin</b> and open <b>Repairs</b>.","Change the status to <b>In progress</b> when work starts.","Add the cost and a short shop note, like \"Parts ordered\".","Set it to <b>Done</b> when the truck is fixed."],after:"Changes save as you make them. The home screen updates on its own."},
+  {t:"Find a truck that's burning too much fuel",go:"today",steps:["On <b>Today</b>, look at <b>Diesel by truck</b>. An amber bar means that truck uses more fuel per km than the other mixers.","Open <b>Fuel log</b> and pick that truck in the filter.","Check the <b>L/100 km</b> column. Flagged numbers are highlighted."],after:"Common causes are a leak, long idling, or a problem that already has a repair ticket."},
+  {t:"Check concrete waste by site",go:"schedule",steps:["Open <b>Schedule & concrete</b>.","Scroll to <b>Concrete by site</b>.","Look at the <b>Waste</b> column. Red means more than 6% came back."],after:"Sites that keep returning concrete may be over-ordering."}],
+ manager:[
+  {t:"Read the home screen",go:"today",steps:["The four numbers at the top are this week's diesel spend, mixer fuel use, open repairs and concrete delivered.","<b>Alerts</b> lists what needs action, most urgent first.","Tap <b>Open</b> on any alert to go to the right screen."],after:"If the Alerts list is empty, nothing needs your attention."},
+  {t:"Change the rules the assistant uses",go:"admin",admin:true,steps:["Switch to <b>Admin</b> and open <b>Admin</b>.","Under <b>Company rules for the assistant</b>, edit a rule or tap <b>Add a rule</b>.","Write it in plain words, the way you'd explain it to a new driver."],after:"It saves when you click away. The assistant uses the new rule on the next question."},
+  {t:"Add a truck or a driver",go:"admin",admin:true,steps:["Open <b>Admin</b>.","Under <b>Fleet</b>, type the unit number, type and odometer, then tap <b>Add truck</b>.","Under <b>Drivers</b>, type the name and tap <b>Add driver</b>."],after:"New trucks and drivers show up in every form right away."},
+  {t:"Record a service",go:"admin",admin:true,steps:["Open <b>Admin</b>.","In the <b>Fleet</b> table, tap <b>Serviced today</b> next to the truck."],after:"This resets the service countdown. Trucks show as due 1,500 km before the next service."}]};
+let guideRole=null;
+function vGuide(){
+  const role=guideRole||(isAdmin()?"manager":"driver");
+  const tabs=[["driver","Drivers"],["office","Office & shop"],["manager","Managers"]];
+  return `<h2 class="view">Guide</h2><p class="sub">How to use YardDesk. Pick who you are to see the tasks you'll do most.</p>
+  <div class="row" style="justify-content:space-between;margin-bottom:16px">
+    <div class="seg" role="group" aria-label="Role">${tabs.map(([k,l])=>`<button type="button" data-grole="${k}" aria-pressed="${k===role}">${l}</button>`).join("")}</div>
+    <button class="btn" type="button" id="tourStart">Walk me through it (1 min)</button></div>
+  <div class="howtos">${GUIDE[role].map(h=>`<article class="howto"><h3>${h.t}</h3><ol>${h.steps.map(x=>`<li>${x}</li>`).join("")}</ol><p class="note">${h.after}</p><button class="btn small" type="button" data-goto="${h.go}" ${h.admin?'data-asadmin="1"':""}>Go to ${VIEWS.find(v=>v[0]===h.go)[1]}</button></article>`).join("")}</div>
+  <div class="grid cols-2" style="margin-top:16px">
+    <section class="panel"><h3>What the colours mean</h3><table><tbody>
+      <tr><td><span class="pill bad">Red</span></td><td>Urgent. A truck is down, overdue for service, or a critical repair is open.</td></tr>
+      <tr><td><span class="pill warn">Amber</span></td><td>Coming up soon, or worth a look, like high fuel use or a driver near the hours limit.</td></tr>
+      <tr><td><span class="pill ok">Green</span></td><td>Fine, passed or done.</td></tr>
+      <tr><td><span class="pill">Grey</span></td><td>For information only.</td></tr></tbody></table></section>
+    <section class="panel faq"><h3>Common questions</h3>
+      <details><summary>Do drivers need a computer?</summary><p>No. YardDesk works in the browser on any phone.</p></details>
+      <details><summary>Can drivers see the Admin page?</summary><p>No. Drivers see their own jobs and forms. Only admins can change rules, trucks, drivers and repair status.</p></details>
+      <details><summary>Where is the information saved?</summary><p>In this demo, only in your own browser, so you can try anything without breaking it. The real version saves to a secure company database with a login for each person.</p></details>
+      <details><summary>Does this replace our ELD?</summary><p>No. Hours in YardDesk are for planning. Your certified ELD stays the legal record. The real version can pull hours from it.</p></details>
+      <details><summary>What if the assistant gets something wrong?</summary><p>It only answers from what's in YardDesk and the company rules. If an answer looks off, check the screen it mentions, and fix the rule under Admin if it's out of date.</p></details>
+    </section></div>`;
+}
+function render(){
+  renderNav();
+  const m=$("#main");
+  const html=({today:vToday,guide:vGuide,schedule:vSchedule,fuel:vFuel,repairs:vRepairs,logs:vLogs,assistant:vAssistant,admin:vAdmin}[view]||vToday)();
+  m.innerHTML=html;
+  if(view==="assistant"){const c=$("#chat");if(c)c.scrollTop=c.scrollHeight}
+  renderTour();
+}
+
+/* ---------- assistant ---------- */
+let sampleFn=null, aiOff=false;
+function aiMode(){return sampleFn&&!aiOff?"ai":"local"}
+
+function dataContext(){
+  const fs=fuelStats(), wf=weekFuel(), c=concrete(dayIso(-6));
+  return JSON.stringify({
+    today:dayIso(0),company:S.company,serviceIntervalKm:S.serviceKm,
+    trucks:S.trucks.map(t=>{const s=serviceStatus(t);return{id:t.id,type:t.type,odometer:t.odo,kmToService:s.left,litres14d:Math.round(fs.byT[t.id].litres14),avgL100km:fs.byT[t.id].avg?+fs.byT[t.id].avg.toFixed(1):null}}),
+    mixerFleetAvgL100km:+fs.fleetMixer.toFixed(1),fuelLast7d:{litres:Math.round(wf.L),cost:Math.round(wf.C)},
+    concreteLast7d:{orderedM3:+c.o.toFixed(1),deliveredM3:+c.d.toFixed(1),returnedM3:+c.r.toFixed(1),wastePct:+c.w.toFixed(1)},
+    jobs:S.jobs.filter(j=>j.date>=dayIso(-6)).map(j=>({date:j.date,time:j.time,site:j.site,mix:j.mix,truck:j.truck,driver:j.driver,ordered:j.ordered,delivered:j.delivered,returned:j.returned,status:j.status})),
+    repairs:S.repairs.map(r=>({truck:r.truck,issue:r.issue,priority:r.priority,status:r.status,reportedBy:r.by,date:r.date,cost:r.cost,note:r.note})),
+    dailyLogs:S.logs.map(l=>({date:l.date,driver:l.driver,truck:l.truck,drivingH:l.drive,onDutyH:l.duty,km:l.endKm-l.startKm,defects:l.defects})),
+    recentFuel:[...S.fuel].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,25).map(f=>({date:f.date,truck:f.truck,litres:f.litres,price:f.price,odo:f.odo}))
+  });
+}
+function localAnswer(q){
+  const t=q.toLowerCase(); const fs=fuelStats();
+  const unit=(q.match(/\b([MDP]-?\d{3})\b/i)||[])[1]; const u=unit?unit.toUpperCase().replace(/^([MDP])(\d)/,"$1-$2"):null;
+  if(/fuel|diesel|litre|liter|gas|mileage|l\/100/.test(t)){
+    if(u&&truck(u)){const b=fs.byT[u];return `${u} used ${n0(b.litres14)} L of diesel in the last 14 days (${money(b.cost14)}).${b.avg?` It averages ${n1(b.avg)} L/100 km${truck(u).type==="Mixer"?`, against ${n1(fs.fleetMixer)} for the mixer fleet`:""}.`:""}`}
+    const mix=S.trucks.filter(x=>x.type==="Mixer"&&fs.byT[x.id].avg).sort((a,b)=>fs.byT[b.id].avg-fs.byT[a.id].avg);
+    const top=mix[0]; const wf=weekFuel();
+    return `Fuel in the last 7 days: ${n0(wf.L)} L, about ${money(wf.C)}.\n\nThe heaviest user is ${top.id} at ${n1(fs.byT[top.id].avg)} L/100 km. The mixer average is ${n1(fs.fleetMixer)}, so ${top.id} is ${Math.round((fs.byT[top.id].avg/fs.fleetMixer-1)*100)}% higher. ${S.repairs.some(r=>r.truck===top.id&&r.status!=="Done")?`It also has an open repair ticket (${S.repairs.find(r=>r.truck===top.id&&r.status!=="Done").issue.toLowerCase()}), which could explain it.`:"Worth checking for leaks or long idling."}`;
+  }
+  if(/service|maintenance|oil|due/.test(t)){
+    const due=S.trucks.map(x=>({t:x,s:serviceStatus(x)})).filter(x=>x.s.due).sort((a,b)=>a.s.left-b.s.left);
+    if(!due.length)return `No trucks are within 1,500 km of their ${n0(S.serviceKm)} km service interval.`;
+    return `Trucks due for service (every ${n0(S.serviceKm)} km):\n`+due.map(x=>`• ${x.t.id}: ${x.s.over?`${n0(-x.s.left)} km overdue`:`due in ${n0(x.s.left)} km`}`).join("\n");
+  }
+  if(/repair|broken|fix|ticket|shop|mechanic/.test(t)&&!/what do i do|break ?down|accident/.test(t)){
+    const o=openRepairs(); if(!o.length)return "No open repair tickets.";
+    return `${o.length} open repair ticket${o.length>1?"s":""}:\n`+o.map(r=>`• ${r.truck} (${r.priority}, ${r.status.toLowerCase()}): ${r.issue}`).join("\n");
+  }
+  if(/concrete|waste|returned|m3|m³|pour|yard(s)? of/.test(t)&&!/today|tomorrow|schedule/.test(t)){
+    const c=concrete(dayIso(-6));
+    return `Last 7 days: ${n1(c.o)} m³ ordered, ${n1(c.d)} m³ delivered and ${n1(c.r)} m³ returned. That's ${n1(c.w)}% waste.`;
+  }
+  if(/today|tomorrow|schedule|pour|job|load/.test(t)){
+    const d=/tomorrow/.test(t)?dayIso(1):dayIso(0); const js=S.jobs.filter(j=>j.date===d).sort((a,b)=>a.time.localeCompare(b.time));
+    if(!js.length)return `Nothing is scheduled for ${fmtDate(d)}.`;
+    return `${fmtDate(d)}: ${js.length} pours, ${n1(js.reduce((a,j)=>a+j.ordered,0))} m³ total.\n`+js.map(j=>`• ${j.time} ${j.site}: ${n1(j.ordered)} m³ ${j.mix}, ${j.truck} with ${j.driver} (${j.status.toLowerCase()})`).join("\n");
+  }
+  if(/hour|hos|driving time|log/.test(t)){
+    const tl=S.logs.filter(l=>l.date===dayIso(0));
+    return `Today's logs so far:\n`+(tl.map(l=>`• ${l.driver}: ${n1(l.drive)} h driving, ${n1(l.duty)} h on duty${l.drive>12?" (close to the 13 h limit)":""}`).join("\n")||"none yet");
+  }
+  const words=t.split(/\W+/).filter(w=>w.length>3);
+  let best=null,score=0; S.kb.forEach(k=>{const hay=(k.title+" "+k.body).toLowerCase();const s=words.reduce((a,w)=>a+(hay.includes(w)?1:0),0)+(/break ?down|accident|crash/.test(t)&&/breakdown/i.test(k.title)?3:0);if(s>score){score=s;best=k}});
+  if(best&&score>0)return `${best.title}:\n${best.body}`;
+  return "I can answer questions about fuel, service, repairs, today's pours, concrete waste, driver hours, and the company rules the admin has written. Try asking \"Which trucks are due for service?\"";
+}
+async function ask(q){
+  q=q.trim(); if(!q||busy)return;
+  chat.push({role:"user",text:q}); busy=true; render();
+  if(aiMode()==="ai"){
+    const rules=S.kb.map(k=>`## ${k.title}\n${k.body}`).join("\n\n");
+    const instr=`You are YardDesk, the operations assistant inside ${S.company}'s yard app (a concrete and trucking company in Stoney Creek, Ontario). Employees and managers ask you about trucks, fuel, concrete pours, repairs, daily logs and company rules. Answer in plain, short sentences (under 120 words unless a list is needed), use the numbers in the data, use litres, km and m³, and say so if the data doesn't cover the question. Never invent records.\n\nCompany rules written by the admin:\n${rules}\n\nCurrent YardDesk data (JSON):\n${dataContext()}`;
+    const turns=[{role:"user",content:instr}];
+    chat.slice(-7,-1).forEach(m=>turns.push({role:m.role==="user"?"user":"assistant",content:m.text}));
+    turns.push({role:"user",content:q});
+    const bot={role:"bot",text:""}; let shown=false;
+    try{
+      await sampleFn(turns,{cache:false,onText:({text})=>{bot.text=text;if(!shown){chat.push(bot);shown=true;busy=false}render()}});
+      if(!shown){chat.push(bot);}
+    }catch(e){
+      if(e&&(e.code==="not_granted"||e.code==="sampling_disabled"||e.code==="not_declared"||e.code==="capability_disabled"||e.code==="capability_removed"))aiOff=true;
+      const fallback=localAnswer(q);
+      if(shown&&e&&e.text){bot.text=e.text+"\n\n(Answer cut short.)"}else{if(shown)chat.pop();chat.push({role:"bot",text:fallback})}
+    }
+    busy=false; render(); return;
+  }
+  setTimeout(()=>{chat.push({role:"bot",text:localAnswer(q)});busy=false;render()},350);
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  if(b.dataset.nav){go(b.dataset.nav);return}
+  if(b.id==="tourStart"){tourGo(0);return}
+  if(b.dataset.grole){guideRole=b.dataset.grole;render();return}
+  if(b.dataset.goto){if(b.dataset.asadmin&&!isAdmin()){S.role="admin";save();toast("Switched to Admin")}go(b.dataset.goto);return}
+  if(b.id==="tourNext"){tourGo(tourStep+1>=TOUR.length?-1:tourStep+1);return}
+  if(b.id==="tourBack"){tourGo(Math.max(0,tourStep-1));return}
+  if(b.id==="tourEnd"){tourGo(-1);return}
+  if(b.id==="hideWelcome"){S.hideWelcome=true;save();render();toast("Dismissed. The Guide is always in the menu.");return}
+  if(b.id==="moreAlerts"){allAlerts=!allAlerts;render();return}
+  if(b.id==="showWelcome"){S.hideWelcome=false;save();go("today");return}
+  if(b.id==="roleDriver"){S.role="driver";if(view==="admin")view="today";save();render();toast(`Driver view: ${S.me}`);return}
+  if(b.id==="roleAdmin"){S.role="admin";save();render();toast("Admin view");return}
+  if(b.dataset.day){selDay=b.dataset.day;render();return}
+  if(b.dataset.chk!=null){checks[CHECK_ITEMS[+b.dataset.chk]]=b.dataset.val;b.parentElement.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));return}
+  if(b.dataset.ask){ask(b.dataset.ask);return}
+  if(b.id==="clearChat"){chat=[];render();return}
+  if(b.dataset.deliver){const j=S.jobs.find(x=>x.id===b.dataset.deliver);const dv=parseFloat($("#del-"+j.id).value);const rt=parseFloat($("#ret-"+j.id).value);
+    j.delivered=isNaN(dv)?j.ordered:dv; j.returned=isNaN(rt)?Math.max(0,+(j.ordered-j.delivered).toFixed(1)):rt; j.status="Delivered"; save(); render(); toast(`${j.truck} delivery recorded`);return}
+  if(b.dataset.svc){const t=truck(b.dataset.svc);t.lastService=t.odo;save();render();toast(`${t.id} marked as serviced`);return}
+  if(b.dataset.kbdel){S.kb=S.kb.filter(k=>k.id!==b.dataset.kbdel);save();render();toast("Rule removed");return}
+  if(b.id==="kbAdd"){S.kb.push({id:uid(),title:"New rule",body:""});save();render();return}
+  if(b.id==="resetBtn"){$("#resetConfirm").innerHTML=`<button class="btn small" type="button" id="resetYes" style="border-color:var(--bad);color:var(--bad)">Yes, reset everything</button>`;return}
+  if(b.id==="resetYes"){const role=S.role;S=seed();S.role=role;chat=[];save();render();toast("Demo data reset");return}
+});
+document.addEventListener("change",e=>{
+  const el=e.target;
+  if(el.id==="meSel"){S.me=el.value;save();render();toast(`Driver view: ${S.me}`);return}
+  if(el.id==="fFilter"){fuelFilter=el.value;render();return}
+  if(el.dataset.rstatus){const r=S.repairs.find(x=>x.id===el.dataset.rstatus);r.status=el.value;save();render();toast(`${r.truck} ticket: ${r.status}`);return}
+  if(el.dataset.rcost){const r=S.repairs.find(x=>x.id===el.dataset.rcost);r.cost=+el.value||0;save();toast("Cost saved");return}
+  if(el.dataset.rnote){const r=S.repairs.find(x=>x.id===el.dataset.rnote);r.note=el.value;save();toast("Note saved");return}
+  if(el.dataset.kbt){S.kb.find(k=>k.id===el.dataset.kbt).title=el.value;save();toast("Rule saved");return}
+  if(el.dataset.kbb){S.kb.find(k=>k.id===el.dataset.kbb).body=el.value;save();toast("Rule saved");return}
+});
+document.addEventListener("submit",e=>{
+  e.preventDefault(); const f=e.target; const v=id=>$("#"+id).value;
+  if(f.id==="askForm"){const q=v("askInput");ask(q);return}
+  if(f.id==="fuelForm"){const t=truck(v("fTruck"));const odo=+v("fOdo");
+    S.fuel.push({id:uid(),date:v("fDate"),truck:t.id,driver:v("fDriver"),litres:+v("fLitres"),price:+v("fPrice"),odo,station:v("fStation")});
+    if(odo>t.odo)t.odo=odo; save(); fuelFilter="all"; render(); toast(`Fill-up saved for ${t.id}`);return}
+  if(f.id==="repForm"){S.repairs.push({id:uid(),truck:v("rTruck"),issue:v("rIssue"),priority:v("rPri"),status:"Open",by:isAdmin()?"Admin":S.me,date:dayIso(0),cost:0,note:""});save();render();toast("Sent to the shop");return}
+  if(f.id==="jobForm"){S.jobs.push({id:uid(),date:v("jDate"),time:v("jTime"),site:v("jSite"),mix:v("jMix"),truck:v("jTruck"),driver:v("jDriver"),ordered:+v("jM3"),delivered:null,returned:null,status:"Scheduled"});selDay=v("jDate");save();render();toast("Pour added to the schedule");return}
+  if(f.id==="logForm"){const defects=CHECK_ITEMS.filter(c=>checks[c]==="defect");const t=truck(v("lTruck"));const end=+v("lEnd");
+    S.logs.push({id:uid(),date:dayIso(0),driver:v("lDriver"),truck:t.id,drive:+v("lDrive"),duty:+v("lDuty"),startKm:+v("lStart"),endKm:end,defects,notes:v("lNotes")});
+    if(end>t.odo)t.odo=end;
+    defects.forEach(d=>S.repairs.push({id:uid(),truck:t.id,issue:`From daily inspection: ${d}${v("lNotes")?` (${v("lNotes")})`:""}`,priority:/Brakes|Tires|Lights/.test(d)?"high":"medium",status:"Open",by:v("lDriver"),date:dayIso(0),cost:0,note:""}));
+    checks={}; save(); render(); toast(defects.length?`Log saved. ${defects.length} repair ticket${defects.length>1?"s":""} sent to the shop.`:"Log saved. Inspection passed.");return}
+  if(f.id==="coForm"){S.company=v("coIn")||S.company;S.serviceKm=+v("svcIn")||S.serviceKm;save();render();toast("Settings saved");return}
+  if(f.id==="truckForm"){const id=v("tId").trim().toUpperCase();if(truck(id)){toast(`${id} already exists`);return}S.trucks.push({id,type:v("tType"),cap:v("tType")==="Mixer"?10:0,odo:+v("tOdo"),lastService:+v("tOdo")});save();render();toast(`${id} added`);return}
+  if(f.id==="drvForm"){const n=v("dName").trim();if(n&&!S.drivers.includes(n))S.drivers.push(n);save();render();toast(`${n} added`);return}
+});
+render();
+})();
+</script>
+
+</body>
+</html>
